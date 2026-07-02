@@ -1,0 +1,809 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Dự kiến đặt hàng &amp; Phân bổ 3 kho</title>
+<style>
+:root{
+  --navy:#1F4E78; --navy-dark:#163A5A; --navy-light:#2E75B6;
+  --bg:#F5F7FA; --card:#FFFFFF; --line:#E3E8EF; --text:#1F2A37; --muted:#6B7684;
+  --cat-mebe-bg:#DDEBF7; --cat-mebe-fg:#1F4E78;
+  --cat-bvsk-bg:#E2EFDA; --cat-bvsk-fg:#375623;
+  --cat-nongsan-bg:#FCE4D6; --cat-nongsan-fg:#833C00;
+  --red-bg:#FFC7CE; --red-fg:#9C0006;
+  --orange-bg:#FFEB9C; --orange-fg:#9C6500;
+  --green-bg:#C6EFCE; --green-fg:#006100;
+  --grey-bg:#E4E4E4; --grey-fg:#595959;
+  --yellow-bg:#FFF9DB;
+  --radius:10px;
+  --shadow:0 1px 3px rgba(16,24,40,.06), 0 1px 2px rgba(16,24,40,.04);
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;background:var(--bg);color:var(--text);
+  font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
+  font-size:14px; -webkit-font-smoothing:antialiased;}
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
+.app{display:flex;flex-direction:column;min-height:100vh}
+
+/* ---------- Header ---------- */
+header.topbar{
+  background:linear-gradient(135deg,var(--navy) 0%, var(--navy-dark) 100%);
+  color:#fff; padding:14px 22px; display:flex; align-items:center; justify-content:space-between;
+  gap:16px; flex-wrap:wrap; box-shadow:var(--shadow); position:sticky; top:0; z-index:50;
+}
+header.topbar .title{display:flex; flex-direction:column; gap:2px}
+header.topbar h1{font-size:16px; margin:0; font-weight:700; letter-spacing:.2px}
+header.topbar .sub{font-size:11.5px; color:#CFE0F0; font-weight:500}
+.hdr-actions{display:flex; gap:8px; flex-wrap:wrap; align-items:center}
+.btn{
+  border:1px solid rgba(255,255,255,.35); background:rgba(255,255,255,.08); color:#fff;
+  padding:7px 12px; border-radius:8px; font-size:12.5px; font-weight:600; cursor:pointer;
+  transition:.15s; white-space:nowrap;
+}
+.btn:hover{background:rgba(255,255,255,.2)}
+.btn.primary{background:#fff; color:var(--navy-dark); border-color:#fff}
+.btn.primary:hover{background:#EAF1F8}
+.btn.ghost-dark{background:#fff; color:var(--navy); border:1px solid var(--line)}
+.btn.ghost-dark:hover{background:#F0F4F8}
+.btn.small{padding:5px 9px;font-size:11.5px}
+.btn.danger{color:#9C0006;border-color:#F5B5BA;background:#fff}
+
+/* ---------- Tabs ---------- */
+nav.tabs{
+  display:flex; gap:2px; background:#fff; border-bottom:1px solid var(--line);
+  padding:0 16px; overflow-x:auto; position:sticky; top:58px; z-index:40;
+}
+nav.tabs button{
+  border:none; background:transparent; padding:12px 14px; font-size:12.8px; font-weight:600;
+  color:var(--muted); cursor:pointer; border-bottom:2.5px solid transparent; white-space:nowrap;
+}
+nav.tabs button:hover{color:var(--navy)}
+nav.tabs button.active{color:var(--navy); border-bottom-color:var(--navy-light)}
+
+main{flex:1; padding:18px 22px 60px; max-width:1600px; margin:0 auto; width:100%}
+.tabpanel{display:none}
+.tabpanel.active{display:block; animation:fadein .18s ease}
+@keyframes fadein{from{opacity:0; transform:translateY(3px)} to{opacity:1; transform:none}}
+
+/* ---------- Cards / KPI ---------- */
+.card{background:var(--card); border:1px solid var(--line); border-radius:var(--radius);
+  box-shadow:var(--shadow); padding:16px 18px; margin-bottom:16px;}
+.card h2{margin:0 0 4px; font-size:15px; color:var(--navy-dark)}
+.card .desc{color:var(--muted); font-size:12.5px; margin:0 0 12px; line-height:1.5}
+
+.kpi-grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(170px,1fr)); gap:12px; margin-bottom:18px}
+.kpi{background:#fff; border:1px solid var(--line); border-radius:var(--radius); padding:14px 16px;
+  box-shadow:var(--shadow); border-left:4px solid var(--navy-light);}
+.kpi .num{font-size:24px; font-weight:800; color:var(--navy-dark); line-height:1.1}
+.kpi .lbl{font-size:11.5px; color:var(--muted); margin-top:4px; font-weight:600}
+.kpi.warn{border-left-color:#C00000}
+.kpi.warn .num{color:#C00000}
+.kpi.amber{border-left-color:#BF8F00}
+.kpi.amber .num{color:#9C6500}
+.kpi.ok{border-left-color:#2E7D32}
+.kpi.ok .num{color:#2E7D32}
+
+.legend{display:flex; gap:8px; flex-wrap:wrap; align-items:center}
+.chip{display:inline-flex; align-items:center; padding:3px 10px; border-radius:999px; font-size:11.5px; font-weight:700}
+.chip.mebe{background:var(--cat-mebe-bg); color:var(--cat-mebe-fg)}
+.chip.bvsk{background:var(--cat-bvsk-bg); color:var(--cat-bvsk-fg)}
+.chip.nongsan{background:var(--cat-nongsan-bg); color:var(--cat-nongsan-fg)}
+
+/* ---------- Tables ---------- */
+.tablewrap{overflow-x:auto; border:1px solid var(--line); border-radius:var(--radius); background:#fff}
+table.datatable{border-collapse:separate; border-spacing:0; width:100%; font-size:12.4px; min-width:700px}
+table.datatable th{
+  background:var(--navy); color:#fff; font-weight:700; font-size:11.3px; text-align:center;
+  padding:8px 6px; position:sticky; top:0; z-index:5; line-height:1.25; border-right:1px solid rgba(255,255,255,.15);
+}
+table.datatable td{padding:5px 6px; text-align:center; border-bottom:1px solid var(--line); white-space:nowrap}
+table.datatable td.left{text-align:left}
+table.datatable tbody tr:hover td{filter:brightness(0.97)}
+table.datatable td.sku-col, table.datatable th.sku-col{position:sticky; left:0; z-index:4; box-shadow:1px 0 0 var(--line)}
+table.datatable td.name-col, table.datatable th.name-col{position:sticky; left:78px; z-index:4; box-shadow:1px 0 0 var(--line)}
+table.datatable input, table.datatable select{
+  width:100%; min-width:56px; border:1px solid transparent; background:transparent; padding:4px 5px;
+  border-radius:6px; font-size:12.3px; font-family:inherit; text-align:center; color:var(--text);
+}
+table.datatable input:hover, table.datatable select:hover{border-color:var(--line); background:#fff}
+table.datatable input:focus, table.datatable select:focus{
+  outline:none; border-color:var(--navy-light); background:#fff; box-shadow:0 0 0 2px rgba(46,117,182,.15);
+}
+table.datatable td.left input{text-align:left}
+tr.tot td{font-weight:800; background:#F0F3F7; position:sticky; bottom:0}
+
+.status-pill{display:inline-block; padding:3px 9px; border-radius:6px; font-weight:700; font-size:11.3px}
+.status-urgent{background:var(--red-bg); color:var(--red-fg)}
+.status-soon{background:var(--orange-bg); color:var(--orange-fg)}
+.status-ok{background:var(--green-bg); color:var(--green-fg)}
+.status-nodata{background:var(--grey-bg); color:var(--grey-fg)}
+.warn-text{color:var(--red-fg); font-weight:700; font-size:11.5px}
+
+.note-box{background:#FFFDF3; border:1px dashed #E8D98A; border-radius:8px; padding:10px 12px; font-size:12px; color:#7A6200; margin-top:10px; line-height:1.55}
+.note-box b{color:#5C4B00}
+
+.field-grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(300px,1fr)); gap:12px}
+.field{background:#fff; border:1px solid var(--line); border-radius:8px; padding:10px 12px}
+.field label{display:block; font-size:12.3px; font-weight:700; color:var(--navy-dark); margin-bottom:3px}
+.field .hint{font-size:11px; color:var(--muted); margin-top:4px; line-height:1.4}
+.field input{width:110px; padding:6px 8px; border:1px solid var(--line); border-radius:6px; font-size:13px; background:var(--yellow-bg); font-weight:700; color:#1F4E78}
+.field input:focus{outline:none; border-color:var(--navy-light)}
+
+.factor-grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(280px,1fr)); gap:12px}
+.factor{border:1px solid var(--line); border-left:4px solid var(--navy-light); border-radius:8px; padding:10px 12px; background:#fff}
+.factor h3{margin:0 0 4px; font-size:12.8px; color:var(--navy-dark)}
+.factor p{margin:0; font-size:11.8px; color:var(--muted); line-height:1.5}
+
+.toolbar{display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-bottom:12px}
+.search{padding:7px 10px; border:1px solid var(--line); border-radius:8px; font-size:12.5px; min-width:220px}
+.filter-btn{border:1px solid var(--line); background:#fff; padding:6px 11px; border-radius:999px; font-size:11.8px; font-weight:700; cursor:pointer; color:var(--muted)}
+.filter-btn.active{background:var(--navy); color:#fff; border-color:var(--navy)}
+
+footer.appfoot{text-align:center; color:var(--muted); font-size:11px; padding:18px; border-top:1px solid var(--line)}
+
+@media print{
+  header.topbar, nav.tabs, .toolbar, .hdr-actions{display:none !important}
+  .tabpanel{display:block !important}
+  main{padding:0}
+}
+
+</style>
+</head>
+<body>
+<div class="app">
+
+<header class="topbar">
+  <div class="title">
+    <h1>📦 Dự kiến đặt hàng &amp; Phân bổ 3 kho</h1>
+    <span class="sub">GT (Hà Nội) · TMĐT · HCM — cập nhật dữ liệu trực tiếp trên các ô, hệ thống tự tính lại</span>
+  </div>
+  <div class="hdr-actions">
+    <button class="btn" id="btnPrint">🖨️ In / Xuất PDF</button>
+    <button class="btn" id="btnExport">⬇️ Xuất dữ liệu (.json)</button>
+    <button class="btn" id="btnImport">⬆️ Nhập dữ liệu (.json)</button>
+    <input type="file" id="fileImport" accept="application/json" style="display:none"/>
+    <button class="btn danger" id="btnReset">↺ Khôi phục mặc định</button>
+  </div>
+</header>
+
+<nav class="tabs">
+  <button class="active" data-tab="dashboard">🏠 Tổng quan</button>
+  <button data-tab="params">⚙️ Tham số</button>
+  <button data-tab="products">🗂️ Danh mục SP</button>
+  <button data-tab="inventory">📦 Tồn kho 3 kho</button>
+  <button data-tab="consumption">📈 Tiêu thụ</button>
+  <button data-tab="order">🧮 Đề xuất đặt hàng</button>
+  <button data-tab="alloc">🚚 Phân bổ 3 kho</button>
+  <button data-tab="factors">💡 Yếu tố tham khảo</button>
+</nav>
+
+<main>
+
+  <!-- ================= DASHBOARD ================= -->
+  <section id="tab-dashboard" class="tabpanel active">
+    <div class="card">
+      <h2>Tổng quan nhanh</h2>
+      <p class="desc">Số liệu tự tính từ toàn bộ dữ liệu đang có trên các tab. Nhấn "Tính lại" nếu vừa nhập dữ liệu ở tab khác và muốn cập nhật ngay.</p>
+      <button class="btn ghost-dark small" data-recalc style="margin-bottom:14px">🔄 Tính lại toàn bộ</button>
+      <div class="kpi-grid">
+        <div class="kpi"><div class="num" id="kpiTotal">0</div><div class="lbl">TỔNG SỐ SKU</div></div>
+        <div class="kpi warn"><div class="num" id="kpiUrgent">0</div><div class="lbl">SKU KHẨN CẤP - ĐẶT NGAY</div></div>
+        <div class="kpi amber"><div class="num" id="kpiSoon">0</div><div class="lbl">SKU CẦN ĐẶT SỚM</div></div>
+        <div class="kpi ok"><div class="num" id="kpiOk">0</div><div class="lbl">SKU ĐỦ HÀNG</div></div>
+        <div class="kpi"><div class="num" id="kpiNodata">0</div><div class="lbl">CHƯA ĐỦ DỮ LIỆU TIÊU THỤ</div></div>
+        <div class="kpi warn"><div class="num" id="kpiVal">0 đ</div><div class="lbl">TỔNG GIÁ TRỊ ĐỀ XUẤT ĐẶT HÀNG</div></div>
+        <div class="kpi warn"><div class="num" id="kpiWarnHCM">0</div><div class="lbl">SKU CẢNH BÁO LÔ HCM NHỎ</div></div>
+        <div class="kpi amber"><div class="num" id="kpiTransfer">0</div><div class="lbl">SKU ĐỀ XUẤT ĐIỀU CHUYỂN NỘI BỘ</div></div>
+      </div>
+    </div>
+    <div class="card">
+      <h2>Phân bổ theo ngành hàng</h2>
+      <div class="legend" style="margin-bottom:12px">
+        <span class="chip mebe">Mẹ &amp; bé</span>
+        <span class="chip bvsk">TP BVSK</span>
+        <span class="chip nongsan">Nông Sản</span>
+      </div>
+      <div class="tablewrap">
+        <table class="datatable" style="min-width:400px">
+          <thead><tr><th class="left">Ngành hàng</th><th>Số SKU</th><th>Số SKU khẩn cấp</th></tr></thead>
+          <tbody id="catBreakdownBody"></tbody>
+        </table>
+      </div>
+    </div>
+    <div class="note-box">
+      <b>Cách dùng nhanh:</b> (1) Vào tab <b>Tham số</b> để chỉnh các ngưỡng theo thực tế công ty · (2) Vào <b>Danh mục SP</b> xác nhận loại hàng/lead time/đơn giá ·
+      (3) Nhập số liệu ở <b>Tồn kho 3 kho</b> và <b>Tiêu thụ</b> · (4) Xem kết quả ở <b>Đề xuất đặt hàng</b> và <b>Phân bổ 3 kho</b>.
+      Nhớ bấm <b>"Xuất dữ liệu (.json)"</b> để lưu lại trước khi đóng trình duyệt — trang này không tự lưu dữ liệu.
+    </div>
+  </section>
+
+  <!-- ================= PARAMS ================= -->
+  <section id="tab-params" class="tabpanel">
+    <div class="card">
+      <h2>Bảng tham số / giả định chung</h2>
+      <p class="desc">Đây là các "núm vặn" chính điều khiển toàn bộ cách tính. Sửa số ở đây sẽ ảnh hưởng tới tab Đề xuất đặt hàng &amp; Phân bổ 3 kho.</p>
+      <div class="field-grid" id="paramsGrid"></div>
+    </div>
+  </section>
+
+  <!-- ================= PRODUCTS ================= -->
+  <section id="tab-products" class="tabpanel">
+    <div class="card">
+      <h2>Danh mục sản phẩm (51 SP)</h2>
+      <p class="desc">Ô nền vàng ở tab khác là giá trị tạm — xác nhận lại loại hàng, lead time, quy cách đóng gói, đơn giá cho đúng thực tế tại đây.</p>
+      <div class="toolbar">
+        <input class="search" id="searchBox" placeholder="🔎 Tìm theo mã hàng hoặc tên hàng..."/>
+        <button class="filter-btn active" data-cat="all">Tất cả</button>
+        <button class="filter-btn" data-cat="Mẹ &amp; bé">Mẹ &amp; bé</button>
+        <button class="filter-btn" data-cat="TP BVSK">TP BVSK</button>
+        <button class="filter-btn" data-cat="Nông Sản">Nông Sản</button>
+      </div>
+      <div class="tablewrap">
+        <table class="datatable">
+          <thead><tr>
+            <th class="sku-col">Barcode</th><th class="name-col">Tên sản phẩm</th><th>Ngành hàng</th><th>ĐVT</th>
+            <th>Loại hàng</th><th>NCC / Nhà máy</th><th>Lead time<br/>nội địa (ngày)</th><th>Lead time<br/>nhập khẩu (ngày)</th>
+            <th>Bội số<br/>đặt hàng</th><th>Đơn giá<br/>(VNĐ)</th><th>Ghi chú</th>
+          </tr></thead>
+          <tbody id="productsBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= INVENTORY ================= -->
+  <section id="tab-inventory" class="tabpanel">
+    <div class="card">
+      <h2>Tồn kho 3 kho</h2>
+      <p class="desc">File gốc chỉ có tổng tồn kho (cột "Tồn tổng theo file gốc") — nhập số thực tế theo từng kho, cột "Chênh lệch" nên = 0 sau khi nhập đủ.</p>
+      <div class="toolbar">
+        <input class="search" id="searchBoxInv" placeholder="🔎 Tìm theo mã hàng hoặc tên hàng..." style="display:none"/>
+      </div>
+      <div class="tablewrap">
+        <table class="datatable">
+          <thead><tr>
+            <th class="sku-col">Barcode</th><th class="name-col">Tên sản phẩm</th><th>Ngành hàng</th>
+            <th>Tồn kho<br/>GT (HN)</th><th>Tồn kho<br/>TMĐT</th><th>Tồn kho<br/>HCM</th>
+            <th>Tổng tồn<br/>3 kho</th><th>Tồn tổng theo<br/>file gốc</th><th>Chênh lệch<br/>(=0)</th>
+            <th>Hàng đang về</th>
+          </tr></thead>
+          <tbody id="inventoryBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= CONSUMPTION ================= -->
+  <section id="tab-consumption" class="tabpanel">
+    <div class="card">
+      <h2>Tiêu thụ theo kho</h2>
+      <p class="desc">Nhập tiêu thụ trung bình/tháng theo từng kho (vd bình quân 3 tháng gần nhất). Hệ số mùa vụ &gt;1 = cao điểm, &lt;1 = thấp điểm.</p>
+      <div class="tablewrap">
+        <table class="datatable">
+          <thead><tr>
+            <th class="sku-col">Barcode</th><th class="name-col">Tên sản phẩm</th><th>Ngành hàng</th>
+            <th>TB tiêu thụ/tháng<br/>GT (HN)</th><th>TB tiêu thụ/tháng<br/>TMĐT</th><th>TB tiêu thụ/tháng<br/>HCM</th>
+            <th>Tổng TB<br/>tiêu thụ/tháng</th><th>Hệ số<br/>mùa vụ</th><th>Tiêu thụ dự kiến/tháng<br/>(đã điều chỉnh)</th>
+          </tr></thead>
+          <tbody id="consumptionBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= ORDER ================= -->
+  <section id="tab-order" class="tabpanel">
+    <div class="card">
+      <h2>Đề xuất đặt hàng tổng</h2>
+      <p class="desc">Tổng số lượng nên đặt cho NCC/nhà máy mỗi SKU, kèm mức độ khẩn cấp. Đây cũng là đầu vào cho tab Phân bổ 3 kho.</p>
+      <button class="btn ghost-dark small" data-recalc style="margin-bottom:10px">🔄 Tính lại</button>
+      <div class="tablewrap">
+        <table class="datatable">
+          <thead><tr>
+            <th class="sku-col">Barcode</th><th class="name-col">Tên sản phẩm</th><th>Ngành hàng</th><th>Loại hàng</th>
+            <th>Lead time<br/>áp dụng</th><th>Tồn hiện tại<br/>(3 kho)</th><th>Hàng<br/>đang về</th>
+            <th>Tiêu thụ dự kiến<br/>/tháng</th><th>Tiêu thụ<br/>/ngày</th><th>Số ngày<br/>an toàn</th>
+            <th>Tồn kho<br/>an toàn</th><th>Điểm đặt<br/>hàng lại</th><th>Chu kỳ đặt<br/>hàng (ngày)</th>
+            <th>Tồn kho<br/>mục tiêu</th><th>Số ngày tồn<br/>còn dùng</th><th>TRẠNG THÁI</th>
+            <th>Bội số<br/>đặt hàng</th><th>SL đề xuất<br/>(trước làm tròn)</th><th>SL ĐỀ XUẤT<br/>ĐẶT HÀNG</th><th>Giá trị<br/>đơn hàng</th>
+          </tr></thead>
+          <tbody id="orderBody"></tbody>
+          <tfoot><tr class="tot"><td colspan="18" class="left">TỔNG</td><td id="orderTotQty"></td></tr></tfoot>
+        </table>
+      </div>
+      <div class="note-box"><b>Giá trị đơn hàng ước tính:</b> <span id="orderTotVal" style="font-weight:800"></span></div>
+    </div>
+  </section>
+
+  <!-- ================= ALLOC ================= -->
+  <section id="tab-alloc" class="tabpanel">
+    <div class="card">
+      <h2>Phân bổ 3 kho (GT / TMĐT / HCM)</h2>
+      <p class="desc">HCM có ngày tồn kho mục tiêu cao hơn (gom lô lớn, đỡ chuyển lắt nhắt). GT &amp; TMĐT mục tiêu thấp hơn (2 kho cách 20km, chi phí điều chuyển rẻ).</p>
+      <button class="btn ghost-dark small" data-recalc style="margin-bottom:10px">🔄 Tính lại</button>
+      <div class="tablewrap">
+        <table class="datatable">
+          <thead><tr>
+            <th class="sku-col">Barcode</th><th class="name-col">Tên sản phẩm</th><th>Ngành hàng</th>
+            <th>SL tổng<br/>đề xuất đặt</th>
+            <th>Tiêu thụ/tháng<br/>GT</th><th>Tiêu thụ/tháng<br/>TMĐT</th><th>Tiêu thụ/tháng<br/>HCM</th>
+            <th>Tồn hiện tại<br/>GT</th><th>Tồn hiện tại<br/>TMĐT</th><th>Tồn hiện tại<br/>HCM</th>
+            <th>Ngày tồn<br/>còn lại GT</th><th>Ngày tồn<br/>còn lại TMĐT</th><th>Ngày tồn<br/>còn lại HCM</th>
+            <th>Ngày tồn<br/>mục tiêu GT</th><th>Ngày tồn<br/>mục tiêu TMĐT</th><th>Ngày tồn<br/>mục tiêu HCM</th>
+            <th>Nhu cầu<br/>bổ sung GT</th><th>Nhu cầu<br/>bổ sung TMĐT</th><th>Nhu cầu<br/>bổ sung HCM</th>
+            <th>PHÂN BỔ<br/>GT (HN)</th><th>PHÂN BỔ<br/>TMĐT</th><th>PHÂN BỔ<br/>HCM</th>
+            <th>Kiểm tra<br/>tổng</th><th>Cảnh báo<br/>lô HCM</th>
+            <th>Chênh lệch ngày<br/>tồn GT-TMĐT</th><th>SL đề xuất<br/>điều chuyển</th><th>Chiều<br/>điều chuyển</th>
+          </tr></thead>
+          <tbody id="allocBody"></tbody>
+          <tfoot><tr class="tot">
+            <td colspan="19" class="left">TỔNG</td>
+            <td id="allocTotGT"></td><td id="allocTotTMDT"></td><td id="allocTotHCM"></td>
+            <td colspan="4"></td>
+          </tr></tfoot>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= FACTORS ================= -->
+  <section id="tab-factors" class="tabpanel">
+    <div class="card">
+      <h2>Các yếu tố khác nên cân nhắc thêm</h2>
+      <p class="desc">Mang tính tham khảo — điều chỉnh nhận định "bằng mắt" sau khi xem số liệu, KHÔNG bắt buộc phải có đủ dữ liệu mới ra quyết định được.</p>
+      <div class="factor-grid" id="factorsGrid"></div>
+    </div>
+  </section>
+
+</main>
+
+<footer class="appfoot">Dữ liệu chỉ lưu trong phiên làm việc trên trình duyệt — dùng nút "Xuất dữ liệu (.json)" để lưu lại và "Nhập dữ liệu (.json)" để khôi phục ở lần sau.</footer>
+</div>
+
+<script>
+const PRODUCTS_SEED = [{"sku": "8809029673477", "name": "Bàn chải đánh răng nhãn hiệu Bristik Ergo Urbane", "cat": "Mẹ & bé", "unit": "Cái", "note": "", "ncc": "Hàn Quốc", "type": "Nhập khẩu", "leadDom": 7, "leadImp": 0, "moq": 1, "price": 0, "gt": 0, "tmdt": 0, "hcm": 0, "incoming": 0, "refTotal": 0, "lastUpdate": "30/06/2026", "consGt": 0, "consTmdt": 0, "consHcm": 0, "season": 1.0}, {"sku": "8809029673262", "name": "Bàn chải đánh răng nhãn hiệu Bristik Ergo Original", "cat": "Mẹ & bé", "unit": "Cái", "note": "", "ncc": "Hàn Quốc", "type": "Nhập khẩu", "leadDom": 7, "leadImp": 0, "moq": 1, "price": 0, "gt": 0, "tmdt": 0, "hcm": 0, "incoming": 0, "refTotal": 0, "lastUpdate": "30/06/2026", "consGt": 0, "consTmdt": 0, "consHcm": 0, "season": 1.0}, {"sku": "8809029675754", "name": "Bàn chải đánh răng dành cho trẻ em trên 6 tháng hiệu Bristik Step 1 - ICE", "cat": "Mẹ & bé", "unit": "Cái", "note": "", "ncc": "Hàn Quốc", "type": "Nhập khẩu", "leadDom": 7, "leadImp": 0, "moq": 1, "price": 0, "gt": 0, "tmdt": 0, "hcm": 0, "incoming": 0, "refTotal": 0, "lastUpdate": "30/06/2026", "consGt": 0, "consTmdt": 0, "consHcm": 0, "season": 1.0}, {"sku": "8809029675761", "name": "Bàn chải đánh răng dành cho trẻ em trên 3 tuổi hiệu BRISTIK Step 2 - ICE", "cat": "Mẹ & bé", "unit": "Cái", "note": "", "ncc": "Hàn Quốc", "type": "Nhập khẩu", "leadDom": 7, "leadImp": 0, "moq": 1, "price": 0, "gt": 0, "tmdt": 0, "hcm": 0, "incoming": 0, "refTotal": 0, "lastUpdate": "30/06/2026", "consGt": 0, "consTmdt": 0, "consHcm": 0, "season": 1.0}, {"sku": "8809029675693", "name": "Bàn chải đánh răng dành cho trẻ em trên 6 tháng hiệu BRISTIK Step 1 - Original", "cat": "Mẹ & bé", "unit": "Cái", "note": "", "ncc": "Hàn Quốc", "type": "Nhập khẩu", "leadDom": 7, "leadImp": 0, "moq": 1, "price": 0, "gt": 0, "tmdt": 0, "hcm": 0, "incoming": 0, "refTotal": 0, "lastUpdate": "30/06/2026", "consGt": 0, "consTmdt": 0, "consHcm": 0, "season": 1.0}, {"sku": "8809029673538", "name": "Bàn chải đánh răng nhãn hiệu Bristik, loại Toothbrush Step 1 đầu nhỏ", "cat": "Mẹ & bé", "unit": "Cái", "note": "", "ncc": "Hàn Quốc", "type": "Nhập khẩu", "leadDom": 7, "leadImp": 0, "moq": 1, "price": 0, "gt": 0, "tmdt": 0, "hcm": 0, "incoming": 0, "refTotal": 0, "lastUpdate": "30/06/2026", "consGt": 0, "consTmdt": 0, "consHcm": 0, "season": 1.0}, {"sku": "8809029673408", "name": "Bàn chải đánh răng dành cho trẻ em trên 6 tháng hiệu Bristik PinkBomb", "cat": "Mẹ & bé", "unit": "Cái", "note": "", "ncc": "Hàn Quốc", "type": "Nhập khẩu", "leadDom": 7, "leadImp": 0, "moq": 1, "price": 0, "gt": 0, "tmdt": 0, "hcm": 0, "incoming": 0, "refTotal": 0, "lastUpdate": "30/06/2026", "consGt": 0, "consTmdt": 0, "consHcm": 0, "season": 1.0}, {"sku": "8809029675747", "name": "Bàn chải đánh răng dành cho trẻ em trên 3 tuổi hiệu BRISTIK Step 2 - Original", "cat": "Mẹ & bé", "unit": "Cái", "note": "", "ncc": "Hàn Quốc", "type": "Nhập khẩu", "leadDom": 7, "leadImp": 0, "moq": 1, "price": 0, "gt": 0, "tmdt": 0, "hcm": 0, "incoming": 0, "refTotal": 0, "lastUpdate": "30/06/2026", "consGt": 0, "consTmdt": 0, "consHcm": 0, "season": 1.0}, {"sku": "8809854861506", "name": "Bình thìa ăn dặm YONOMYONOM dành cho trẻ em, màu hồng", "cat": "Mẹ & bé", "unit": "Chiếc", "note": "", "ncc": "Hàn Quốc", "type": "Nhập khẩu", "leadDom": 7, "leadImp": 0, "moq": 1, "price": 0, "gt": 0, "tmdt": 0, "hcm": 0, "incoming": 0, "refTotal": 0, "lastUpdate": "30/06/2026", "consGt": 0, "consTmdt": 0, "consHcm": 0, "season": 1.0}, {"sku": "8809854861520", "name": "Bình thìa ăn dặm YONOMYONOM dành cho trẻ em, màu vàng", "cat": "Mẹ & bé", "unit": "Chiếc", "note": "", "ncc": "Hàn Quốc", "type": "Nhập khẩu", "leadDom": 7, "leadImp": 0, "moq": 1, "price": 0, "gt": 0, "tmdt": 0, "hcm": 0, "incoming": 0, "refTotal": 0, "lastUpdate": "30/06/2026", "consGt": 0, "consTmdt": 0, "consHcm": 0, "season": 1.0}, {"sku": "8809854861513", "name": "Bình thìa ăn dặm YONOMYONOM dành cho trẻ em, màu xanh", "cat": "Mẹ & bé", "unit": "Chiếc", "note": "", "ncc": "Hàn Quốc", "type": "Nhập khẩu", "leadDom": 7, "leadImp": 0, "moq": 1, "price": 0, "gt": 0, "tmdt": 0, "hcm": 0, "incoming": 0, "refTotal": 0, "lastUpdate": "30/06/2026", "consGt": 0, "consTmdt": 0, "consHcm": 0, "season": 1.0}, {"sku": "8809519020453", "name": "Bột tẩy trắng Redroot, 1kg/ hộp", "cat": "Mẹ & bé", "unit": "Hộp", "note": "", "ncc": "Hàn Quốc", "type": "Nhập khẩu", "leadDom": 7, "leadImp": 0, "moq": 1, "price": 0, "gt": 0, "tmdt": 0, "hcm": 0, "incoming": 0, "refTotal": 0, "lastUpdate": "30/06/2026", "consGt": 0, "consTmdt": 0, "consHcm": 0, "season": 1.0}, {"sku": "8809912580059", "name": "Cốc đánh răng bằng thép không gỉ, dung tích 280ml, kích thước 105x85x75ml", "cat": "Mẹ & bé", "unit": "Cái", "note": "", "ncc": "Hàn Quốc", "type": "Nhập khẩu", "leadDom": 7, "leadImp": 0, "moq": 1, "price": 0, "gt": 0, "tmdt": 0, "hcm": 0, "incoming": 0, "refTotal": 0, "lastUpdate": "30/06/2026", "consGt": 0, "consTmdt": 0, "consHcm": 0, "season": 1.0}, {"sku": "8809519020842", "name": "Giấy sấy tạo hương Redroot Sweet Floral, 50 tờ/ hộp", "cat": "Mẹ & bé", "unit": "Hộp", "note": "", "ncc": "Hàn Quốc", "type": "Nhập khẩu", "leadDom": 7, "leadImp": 0, "moq": 1, "price": 0, "gt": 0, "tmdt": 0, "hcm": 0, "incoming": 0, "refTotal": 0, "lastUpdate": "30/06/2026", "consGt": 0, "consTmdt": 0, "consHcm": 0, "season": 1.0}, {"sku": "8809519021023", "name": "Giấy sấy tạo hương Redroot Vanilla Cotton, 50 tờ/ hộp", "cat": "Mẹ & bé", "unit": "Hộp", "note": "", "ncc": "Hàn Quốc", "type": "Nhập khẩu", "leadDom": 7, "leadImp": 0, "moq": 1, "price": 0, "gt": 0, "tmdt": 0, "hcm": 0, "incoming": 0, "refTotal": 0, "lastUpdate": "30/06/2026", "consGt": 0, "consTmdt": 0, "consHcm": 0, "season": 1.0}, {"sku": "8809519020682", "name": "Giấy sấy tạo hương Redroot Musk Floral, 50 tờ/ hộp", "cat": "Mẹ & bé", "unit": "Hộp", "note": "", "ncc": "Hàn Quốc", "type": "Nhập khẩu", "leadDom": 7, "leadImp": 0, "moq": 1, "price": 0, "gt": 0, "tmdt": 0, "hcm": 0, "incoming": 0, "refTotal": 0, "lastUpdate": "30/06/2026", "consGt": 0, "consTmdt": 0, "consHcm": 0, "season": 1.0}, {"sku": "8806125404271", "name": "Kem đánh răng BRISTIK KL Blueberry, 50g/ tuýp", "cat": "Mẹ & bé", "unit": "Tuýp", "note": "", "ncc": "Hàn Quốc", "type": "Nhập khẩu", "leadDom": 7, "leadImp": 0, "moq": 1, "price": 0, "gt": 0, "tmdt": 0, "hcm": 0, "incoming": 0, "refTotal": 0, "lastUpdate": "30/06/2026", "consGt": 0, "consTmdt": 0, "consHcm": 0, "season": 1.0}, {"sku": "8809912580028", "name": "Kem đánh răng BRISTIK KLS Strawberry, 50g/ tuýp", "cat": "Mẹ & bé", "unit": "Tuýp", "note": "", "ncc": "Hàn Quốc", "type": "Nhập khẩu", "leadDom": 7, "leadImp": 0, "moq": 1, "price": 0, "gt": 0, "tmdt": 0, "hcm": 0, "incoming": 0, "refTotal": 0, "lastUpdate": "30/06/2026", "consGt": 0, "consTmdt": 0, "consHcm": 0, "season": 1.0}, {"sku": "8809519020736", "name": "Nước giặt Redroot Fragrance Free, 1000ml/chai", "cat": "Mẹ & bé", "unit": "Chai", "note": "", "ncc": "Hàn Quốc", "type": "Nhập khẩu", "leadDom": 7, "leadImp": 0, "moq": 1, "price": 0, "gt": 0, "tmdt": 0, "hcm": 0, "incoming": 0, "refTotal": 0, "lastUpdate": "30/06/2026", "consGt": 0, "consTmdt": 0, "consHcm": 0, "season": 1.0}, {"sku": "8809519020392", "name": "Nước giặt Redroot Musk Floral, 1000ml/ chai", "cat": "Mẹ & bé", "unit": "Chai", "note": "", "ncc": "Hàn Quốc", "type": "Nhập khẩu", "leadDom": 7, "leadImp": 0, "moq": 1, "price": 0, "gt": 0, "tmdt": 0, "hcm": 0, "incoming": 0, "refTotal": 0, "lastUpdate": "30/06/2026", "consGt": 0, "consTmdt": 0, "consHcm": 0, "season": 1.0}, {"sku": "8809519020408", "name": "Nước giặt Redroot Sweet Floral, 1000ml/ chai", "cat": "Mẹ & bé", "unit": "Chai", "note": "", "ncc": "Hàn Quốc", "type": "Nhập khẩu", "leadDom": 7, "leadImp": 0, "moq": 1, "price": 0, "gt": 0, "tmdt": 0, "hcm": 0, "incoming": 0, "refTotal": 0, "lastUpdate": "30/06/2026", "consGt": 0, "consTmdt": 0, "consHcm": 0, "season": 1.0}, {"sku": "8809519021160", "name": "Nước giặt thuần chay RedRoot (Greenary) 1000ml/chai", "cat": "Mẹ & bé", "unit": "Chai", "note": "", "ncc": "Hàn Quốc", "type": "Nhập khẩu", "leadDom": 7, "leadImp": 0, "moq": 1, "price": 0, "gt": 0, "tmdt": 0, "hcm": 0, "incoming": 0, "refTotal": 0, "lastUpdate": "30/06/2026", "consGt": 0, "consTmdt": 0, "consHcm": 0, "season": 1.0}, {"sku": "8809519021153", "name": "Nước giặt thuần chay RedRoot (Ordinary) 1000ml/chai", "cat": "Mẹ & bé", "unit": "Chai", "note": "", "ncc": "Hàn Quốc", "type": "Nhập khẩu", "leadDom": 7, "leadImp": 0, "moq": 1, "price": 0, "gt": 0, "tmdt": 0, "hcm": 0, "incoming": 0, "refTotal": 0, "lastUpdate": "30/06/2026", "consGt": 0, "consTmdt": 0, "consHcm": 0, "season": 1.0}, {"sku": "8809519020606", "name": "Nước giặt Redroot Vanilla Cotton, 1000ml/chai", "cat": "Mẹ & bé", "unit": "Chai", "note": "", "ncc": "Hàn Quốc", "type": "Nhập khẩu", "leadDom": 7, "leadImp": 0, "moq": 1, "price": 0, "gt": 0, "tmdt": 0, "hcm": 0, "incoming": 0, "refTotal": 0, "lastUpdate": "30/06/2026", "consGt": 0, "consTmdt": 0, "consHcm": 0, "season": 1.0}, {"sku": "8809519020422", "name": "Nước rửa bình sữa hữu cơ RedRoot, 750ml/chai", "cat": "Mẹ & bé", "unit": "Chai", "note": "", "ncc": "Hàn Quốc", "type": "Nhập khẩu", "leadDom": 7, "leadImp": 0, "moq": 1, "price": 0, "gt": 0, "tmdt": 0, "hcm": 0, "incoming": 0, "refTotal": 0, "lastUpdate": "30/06/2026", "consGt": 0, "consTmdt": 0, "consHcm": 0, "season": 1.0}, {"sku": "8809519020385", "name": "Nước rửa chén Redroot, 500ml/chai", "cat": "Mẹ & bé", "unit": "Chai", "note": "", "ncc": "Hàn Quốc", "type": "Nhập khẩu", "leadDom": 7, "leadImp": 0, "moq": 1, "price": 0, "gt": 0, "tmdt": 0, "hcm": 0, "incoming": 0, "refTotal": 0, "lastUpdate": "30/06/2026", "consGt": 0, "consTmdt": 0, "consHcm": 0, "season": 1.0}, {"sku": "8809519020378", "name": "Nước tẩy vết bẩn Redroot, 500ml/chai", "cat": "Mẹ & bé", "unit": "Chai", "note": "", "ncc": "Hàn Quốc", "type": "Nhập khẩu", "leadDom": 7, "leadImp": 0, "moq": 1, "price": 0, "gt": 0, "tmdt": 0, "hcm": 0, "incoming": 0, "refTotal": 0, "lastUpdate": "30/06/2026", "consGt": 0, "consTmdt": 0, "consHcm": 0, "season": 1.0}, {"sku": "8809519021184", "name": "Nước xả thuần chay RedRoot (Greenary) 1000ml/chai", "cat": "Mẹ & bé", "unit": "Chai", "note": "", "ncc": "Hàn Quốc", "type": "Nhập khẩu", "leadDom": 7, "leadImp": 0, "moq": 1, "price": 0, "gt": 0, "tmdt": 0, "hcm": 0, "incoming": 0, "refTotal": 0, "lastUpdate": "30/06/2026", "consGt": 0, "consTmdt": 0, "consHcm": 0, "season": 1.0}, {"sku": "8809519021177", "name": "Nước xả thuần chay RedRoot (Ordinary) 1000ml/chai", "cat": "Mẹ & bé", "unit": "Chai", "note": "", "ncc": "Hàn Quốc", "type": "Nhập khẩu", "leadDom": 7, "leadImp": 0, "moq": 1, "price": 0, "gt": 0, "tmdt": 0, "hcm": 0, "incoming": 0, "refTotal": 0, "lastUpdate": "30/06/2026", "consGt": 0, "consTmdt": 0, "consHcm": 0, "season": 1.0}, {"sku": "8809519020392-2", "name": "Nước xả mềm vải Redroot Musk Floral, 1000ml/chai", "cat": "Mẹ & bé", "unit": "Chai", "note": "Barcode 8809519020392 bị trùng với 1 sản phẩm khác trong file gốc - đã thêm hậu tố phân biệt, vui lòng kiểm tra lại mã gốc", "ncc": "Hàn Quốc", "type": "Nhập khẩu", "leadDom": 7, "leadImp": 0, "moq": 1, "price": 0, "gt": 0, "tmdt": 0, "hcm": 0, "incoming": 0, "refTotal": 0, "lastUpdate": "30/06/2026", "consGt": 0, "consTmdt": 0, "consHcm": 0, "season": 1.0}, {"sku": "8809519020361", "name": "Nước xả mềm vải Redroot Sweet Floral 1000ml/chai", "cat": "Mẹ & bé", "unit": "Chai", "note": "", "ncc": "Hàn Quốc", "type": "Nhập khẩu", "leadDom": 7, "leadImp": 0, "moq": 1, "price": 0, "gt": 0, "tmdt": 0, "hcm": 0, "incoming": 0, "refTotal": 0, "lastUpdate": "30/06/2026", "consGt": 0, "consTmdt": 0, "consHcm": 0, "season": 1.0}, {"sku": "8809519020606-2", "name": "Nước xả mềm vải Redroot Vanilla Cotton 1000ml/chai", "cat": "Mẹ & bé", "unit": "Chai", "note": "Barcode 8809519020606 bị trùng với 1 sản phẩm khác trong file gốc - đã thêm hậu tố phân biệt, vui lòng kiểm tra lại mã gốc", "ncc": "Hàn Quốc", "type": "Nhập khẩu", "leadDom": 7, "leadImp": 0, "moq": 1, "price": 0, "gt": 0, "tmdt": 0, "hcm": 0, "incoming": 0, "refTotal": 0, "lastUpdate": "30/06/2026", "consGt": 0, "consTmdt": 0, "consHcm": 0, "season": 1.0}, {"sku": "8809519021238", "name": "Túi thơm thuần chay dùng thơm phòng RedRoot Greenery", "cat": "Mẹ & bé", "unit": "Cái", "note": "", "ncc": "Hàn Quốc", "type": "Nhập khẩu", "leadDom": 7, "leadImp": 0, "moq": 1, "price": 0, "gt": 0, "tmdt": 0, "hcm": 0, "incoming": 0, "refTotal": 0, "lastUpdate": "30/06/2026", "consGt": 0, "consTmdt": 0, "consHcm": 0, "season": 1.0}, {"sku": "8809519021245", "name": "Túi thơm thuần chay dùng thơm phòng RedRoot Ordinary", "cat": "Mẹ & bé", "unit": "Cái", "note": "", "ncc": "Hàn Quốc", "type": "Nhập khẩu", "leadDom": 7, "leadImp": 0, "moq": 1, "price": 0, "gt": 0, "tmdt": 0, "hcm": 0, "incoming": 0, "refTotal": 0, "lastUpdate": "30/06/2026", "consGt": 0, "consTmdt": 0, "consHcm": 0, "season": 1.0}, {"sku": "8938561983048", "name": "Calrosan AquaF (Hộp 1 lọ x 60 viên)", "cat": "TP BVSK", "unit": "Hộp", "note": "", "ncc": "Mộc Lâm", "type": "Nội địa", "leadDom": 7, "leadImp": 0, "moq": 1, "price": 0, "gt": 0, "tmdt": 0, "hcm": 0, "incoming": 0, "refTotal": 0, "lastUpdate": "30/06/2026", "consGt": 0, "consTmdt": 0, "consHcm": 0, "season": 1.0}, {"sku": "8936116605285", "name": "Men vi sinh 6 tỷ lợi khuẩn EnterBio Extra", "cat": "TP BVSK", "unit": "Hộp", "note": "", "ncc": "Mộc Lâm", "type": "Nội địa", "leadDom": 7, "leadImp": 0, "moq": 1, "price": 0, "gt": 0, "tmdt": 0, "hcm": 0, "incoming": 0, "refTotal": 0, "lastUpdate": "30/06/2026", "consGt": 0, "consTmdt": 0, "consHcm": 0, "season": 1.0}, {"sku": "8052219900130", "name": "Viên bổ sung sắt Hemofast (2 vỉ/hộp)", "cat": "TP BVSK", "unit": "Hộp", "note": "", "ncc": "Mộc Lâm", "type": "Nội địa", "leadDom": 7, "leadImp": 0, "moq": 1, "price": 0, "gt": 0, "tmdt": 0, "hcm": 0, "incoming": 0, "refTotal": 0, "lastUpdate": "30/06/2026", "consGt": 0, "consTmdt": 0, "consHcm": 0, "season": 1.0}, {"sku": "8936224290403", "name": "Omega 3 DHA-EPA (Hộp 1 lọ x 30 viên)", "cat": "TP BVSK", "unit": "Hộp", "note": "", "ncc": "Mộc Lâm", "type": "Nội địa", "leadDom": 7, "leadImp": 0, "moq": 1, "price": 0, "gt": 0, "tmdt": 0, "hcm": 0, "incoming": 0, "refTotal": 0, "lastUpdate": "30/06/2026", "consGt": 0, "consTmdt": 0, "consHcm": 0, "season": 1.0}, {"sku": "8938561983222", "name": "Viên dầu nhuyễn thể Prime Omega 3", "cat": "TP BVSK", "unit": "Hộp", "note": "", "ncc": "Mộc Lâm", "type": "Nội địa", "leadDom": 7, "leadImp": 0, "moq": 1, "price": 0, "gt": 0, "tmdt": 0, "hcm": 0, "incoming": 0, "refTotal": 0, "lastUpdate": "30/06/2026", "consGt": 0, "consTmdt": 0, "consHcm": 0, "season": 1.0}, {"sku": "8423245095396", "name": "Viên bổ não BRAIN FORT", "cat": "TP BVSK", "unit": "Hộp", "note": "", "ncc": "Mộc Lâm", "type": "Nội địa", "leadDom": 7, "leadImp": 0, "moq": 1, "price": 0, "gt": 0, "tmdt": 0, "hcm": 0, "incoming": 0, "refTotal": 0, "lastUpdate": "30/06/2026", "consGt": 0, "consTmdt": 0, "consHcm": 0, "season": 1.0}, {"sku": "8938513856154", "name": "Dứa cắt khoanh đóng lon 565g 20oz", "cat": "Nông Sản", "unit": "Lọ", "note": "", "ncc": "F&G", "type": "Nội địa", "leadDom": 7, "leadImp": 0, "moq": 1, "price": 0, "gt": 0, "tmdt": 0, "hcm": 0, "incoming": 0, "refTotal": 0, "lastUpdate": "30/06/2026", "consGt": 0, "consTmdt": 0, "consHcm": 0, "season": 1.0}, {"sku": "8938513856147", "name": "Dứa cắt miếng đóng lon A10", "cat": "Nông Sản", "unit": "Lon", "note": "", "ncc": "F&G", "type": "Nội địa", "leadDom": 7, "leadImp": 0, "moq": 1, "price": 0, "gt": 0, "tmdt": 0, "hcm": 0, "incoming": 0, "refTotal": 0, "lastUpdate": "30/06/2026", "consGt": 0, "consTmdt": 0, "consHcm": 0, "season": 1.0}, {"sku": "8938513856123", "name": "Dứa cắt miếng đóng lon 565g 20oz", "cat": "Nông Sản", "unit": "Lon", "note": "Ngành hàng tự suy luận (file gốc bị thiếu ở dòng này) - vui lòng xác nhận lại", "ncc": "F&G", "type": "Nội địa", "leadDom": 7, "leadImp": 0, "moq": 1, "price": 0, "gt": 0, "tmdt": 0, "hcm": 0, "incoming": 0, "refTotal": 0, "lastUpdate": "30/06/2026", "consGt": 0, "consTmdt": 0, "consHcm": 0, "season": 1.0}, {"sku": "8938513856208", "name": "Vải thiều tươi đóng hộp 20oz", "cat": "Nông Sản", "unit": "Lon", "note": "", "ncc": "F&G", "type": "Nội địa", "leadDom": 7, "leadImp": 0, "moq": 1, "price": 0, "gt": 0, "tmdt": 0, "hcm": 0, "incoming": 0, "refTotal": 0, "lastUpdate": "30/06/2026", "consGt": 0, "consTmdt": 0, "consHcm": 0, "season": 1.0}, {"sku": "8938513856222", "name": "Ngô ngọt đóng lon 15oz 200gr", "cat": "Nông Sản", "unit": "Lon", "note": "", "ncc": "F&G", "type": "Nội địa", "leadDom": 7, "leadImp": 0, "moq": 1, "price": 0, "gt": 0, "tmdt": 0, "hcm": 0, "incoming": 0, "refTotal": 0, "lastUpdate": "30/06/2026", "consGt": 0, "consTmdt": 0, "consHcm": 0, "season": 1.0}, {"sku": "8938513856239", "name": "Ngô ngọt đóng lon 15oz 230gr", "cat": "Nông Sản", "unit": "Lon", "note": "", "ncc": "F&G", "type": "Nội địa", "leadDom": 7, "leadImp": 0, "moq": 1, "price": 0, "gt": 0, "tmdt": 0, "hcm": 0, "incoming": 0, "refTotal": 0, "lastUpdate": "30/06/2026", "consGt": 0, "consTmdt": 0, "consHcm": 0, "season": 1.0}, {"sku": "8938513856635", "name": "Xoài sấy dẻo muối ớt đóng gói 100gr", "cat": "Nông Sản", "unit": "Lon", "note": "", "ncc": "F&G", "type": "Nội địa", "leadDom": 7, "leadImp": 0, "moq": 1, "price": 0, "gt": 0, "tmdt": 0, "hcm": 0, "incoming": 0, "refTotal": 0, "lastUpdate": "30/06/2026", "consGt": 0, "consTmdt": 0, "consHcm": 0, "season": 1.0}, {"sku": "8938513856642", "name": "Xoài sấy dẻo muối ớt đóng gói 200gr", "cat": "Nông Sản", "unit": "Lon", "note": "", "ncc": "F&G", "type": "Nội địa", "leadDom": 7, "leadImp": 0, "moq": 1, "price": 0, "gt": 0, "tmdt": 0, "hcm": 0, "incoming": 0, "refTotal": 0, "lastUpdate": "30/06/2026", "consGt": 0, "consTmdt": 0, "consHcm": 0, "season": 1.0}, {"sku": "8938513856659", "name": "Xoài sấy dẻo tự nhiên đóng gói 200gr", "cat": "Nông Sản", "unit": "Lon", "note": "", "ncc": "F&G", "type": "Nội địa", "leadDom": 7, "leadImp": 0, "moq": 1, "price": 0, "gt": 0, "tmdt": 0, "hcm": 0, "incoming": 0, "refTotal": 0, "lastUpdate": "30/06/2026", "consGt": 0, "consTmdt": 0, "consHcm": 0, "season": 1.0}, {"sku": "8938513856338", "name": "Hạt sen ngâm đường đóng lon 15oz", "cat": "Nông Sản", "unit": "Lon", "note": "", "ncc": "F&G", "type": "Nội địa", "leadDom": 7, "leadImp": 0, "moq": 1, "price": 0, "gt": 0, "tmdt": 0, "hcm": 0, "incoming": 0, "refTotal": 0, "lastUpdate": "30/06/2026", "consGt": 0, "consTmdt": 0, "consHcm": 0, "season": 1.0}, {"sku": "8938513856031", "name": "Dưa chuột 6-9cm dầm dấm 720ml", "cat": "Nông Sản", "unit": "Lon", "note": "", "ncc": "F&G", "type": "Nội địa", "leadDom": 7, "leadImp": 0, "moq": 1, "price": 0, "gt": 0, "tmdt": 0, "hcm": 0, "incoming": 0, "refTotal": 0, "lastUpdate": "30/06/2026", "consGt": 0, "consTmdt": 0, "consHcm": 0, "season": 1.0}];
+const PARAMS_SEED = {"safetyDom": 10, "safetyImp": 20, "cycleDom": 30, "cycleImp": 60, "targetHCM": 55, "targetGT": 20, "targetTMDT": 20, "minHCMBatch": 200, "thresholdTransfer": 7, "daysPerMonth": 30};
+
+</script>
+<script>
+/* ============ STATE ============ */
+let PRODUCTS = JSON.parse(JSON.stringify(PRODUCTS_SEED));
+let PARAMS = JSON.parse(JSON.stringify(PARAMS_SEED));
+const CATS = ["Mẹ & bé", "TP BVSK", "Nông Sản"];
+const CAT_STYLE = {
+  "Mẹ & bé": {bg:"#DDEBF7", fg:"#1F4E78", chip:"chip mebe"},
+  "TP BVSK": {bg:"#E2EFDA", fg:"#375623", chip:"chip bvsk"},
+  "Nông Sản": {bg:"#FCE4D6", fg:"#833C00", chip:"chip nongsan"},
+};
+const UI = { filterCat: "all", q: "" };
+
+/* ============ HELPERS ============ */
+function fmt0(n){ if(n===Infinity||n===-Infinity||isNaN(n)) return "∞"; return Math.round(n).toLocaleString("vi-VN"); }
+function fmt1(n){ if(n===Infinity||n===-Infinity||isNaN(n)) return "∞"; return n.toLocaleString("vi-VN",{maximumFractionDigits:1}); }
+function fmtVnd(n){ if(isNaN(n)) return "0 đ"; return Math.round(n).toLocaleString("vi-VN")+" đ"; }
+function esc(s){ return (s===undefined||s===null)?"":String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
+function catStyle(cat){ return CAT_STYLE[cat] || {bg:"#F2F2F2", fg:"#444"}; }
+
+function filteredProducts(){
+  const q = UI.q.trim().toLowerCase();
+  return PRODUCTS.map((p,idx)=>({p,idx})).filter(({p})=>{
+    if (UI.filterCat !== "all" && p.cat !== UI.filterCat) return false;
+    if (!q) return true;
+    return p.sku.toLowerCase().includes(q) || p.name.toLowerCase().includes(q);
+  });
+}
+
+/* ============ COMPUTE ENGINE (mirrors the Excel workbook) ============ */
+function computeOrder(p){
+  const totalInv = p.gt + p.tmdt + p.hcm;
+  const consMonthRaw = p.consGt + p.consTmdt + p.consHcm;
+  const consMonth = consMonthRaw * p.season;
+  const consDay = consMonth / PARAMS.daysPerMonth;
+  const leadTime = p.type === "Nội địa" ? p.leadDom : p.leadImp;
+  const safety = p.type === "Nội địa" ? PARAMS.safetyDom : PARAMS.safetyImp;
+  const safetyStock = consDay * safety;
+  const reorderPoint = consDay * leadTime + safetyStock;
+  const cycle = p.type === "Nội địa" ? PARAMS.cycleDom : PARAMS.cycleImp;
+  const targetStock = consDay * cycle + safetyStock;
+  const daysLeft = consDay === 0 ? Infinity : (totalInv + p.incoming) / consDay;
+  let status;
+  if (consDay === 0) status = "Chưa đủ dữ liệu tiêu thụ";
+  else if ((totalInv + p.incoming) <= reorderPoint) status = "KHẨN CẤP - Đặt ngay";
+  else if ((totalInv + p.incoming) <= reorderPoint * 1.2) status = "CẦN ĐẶT HÀNG SỚM";
+  else status = "Đủ hàng";
+  const rawQty = Math.max(0, targetStock - totalInv - p.incoming);
+  const moq = p.moq > 0 ? p.moq : 1;
+  const orderQty = rawQty <= 0 ? 0 : Math.ceil(rawQty / moq) * moq;
+  const orderValue = orderQty * (p.price || 0);
+  return { totalInv, consMonth, consDay, leadTime, safety, safetyStock, reorderPoint, cycle, targetStock, daysLeft, status, rawQty, orderQty, orderValue };
+}
+
+function computeAlloc(p, orderQty){
+  const dayGT = p.consGt === 0 ? Infinity : p.gt / (p.consGt / PARAMS.daysPerMonth);
+  const dayTMDT = p.consTmdt === 0 ? Infinity : p.tmdt / (p.consTmdt / PARAMS.daysPerMonth);
+  const dayHCM = p.consHcm === 0 ? Infinity : p.hcm / (p.consHcm / PARAMS.daysPerMonth);
+  const needGT = Math.max(0, (p.consGt / PARAMS.daysPerMonth) * PARAMS.targetGT - p.gt);
+  const needTMDT = Math.max(0, (p.consTmdt / PARAMS.daysPerMonth) * PARAMS.targetTMDT - p.tmdt);
+  const needHCM = Math.max(0, (p.consHcm / PARAMS.daysPerMonth) * PARAMS.targetHCM - p.hcm);
+  const totalNeed = needGT + needTMDT + needHCM;
+  let allocGT = 0, allocTMDT = 0, allocHCM = 0;
+  if (totalNeed > 0 && orderQty > 0) {
+    allocGT = Math.round(needGT * orderQty / totalNeed);
+    allocTMDT = Math.round(needTMDT * orderQty / totalNeed);
+    allocHCM = orderQty - allocGT - allocTMDT;
+  }
+  const check = allocGT + allocTMDT + allocHCM - orderQty;
+  const warnHCM = allocHCM > 0 && allocHCM < PARAMS.minHCMBatch;
+  const diffDays = (isFinite(dayGT) ? dayGT : 9999) - (isFinite(dayTMDT) ? dayTMDT : 9999);
+  let transferQty = 0, transferDir = "-";
+  if (Math.abs(diffDays) >= PARAMS.thresholdTransfer) {
+    const denom = p.consGt + p.consTmdt;
+    if (denom > 0) {
+      const raw = (p.consTmdt * p.gt - p.consGt * p.tmdt) / denom;
+      transferQty = Math.round(Math.abs(raw));
+      if (transferQty > 0) transferDir = diffDays > 0 ? "GT → TMĐT" : "TMĐT → GT";
+    }
+  }
+  return { dayGT, dayTMDT, dayHCM, needGT, needTMDT, needHCM, allocGT, allocTMDT, allocHCM, check, warnHCM, diffDays, transferQty, transferDir };
+}
+
+/* ============ ROW-LEVEL FIELD UPDATE ============ */
+function bindDelegatedInputs(containerId){
+  const el = document.getElementById(containerId);
+  el.addEventListener("input", onFieldChange);
+  el.addEventListener("change", onFieldChange);
+}
+function onFieldChange(e){
+  const t = e.target;
+  const idx = t.dataset.idx;
+  const field = t.dataset.field;
+  if (idx === undefined || !field) return;
+  const p = PRODUCTS[idx];
+  const kind = t.dataset.kind || "number";
+  if (kind === "number") p[field] = parseFloat(t.value) || 0;
+  else p[field] = t.value;
+  const row = t.closest("tr");
+  if (row) updateRowDerived(row, p);
+}
+function updateRowDerived(row, p){
+  const tot = row.querySelector('[data-derived="total"]');
+  if (tot) tot.textContent = fmt0((p.gt||0)+(p.tmdt||0)+(p.hcm||0));
+  const diff = row.querySelector('[data-derived="diff"]');
+  if (diff){
+    const d = ((p.gt||0)+(p.tmdt||0)+(p.hcm||0)) - (p.refTotal||0);
+    diff.textContent = fmt0(d);
+    diff.style.color = d !== 0 ? "#9C0006" : "#2E7D32";
+    diff.style.fontWeight = 800;
+  }
+  const totCons = row.querySelector('[data-derived="totcons"]');
+  if (totCons) totCons.textContent = fmt0((p.consGt||0)+(p.consTmdt||0)+(p.consHcm||0));
+  const expCons = row.querySelector('[data-derived="expcons"]');
+  if (expCons) expCons.textContent = fmt0(((p.consGt||0)+(p.consTmdt||0)+(p.consHcm||0))*(p.season||0));
+}
+
+/* ============ RENDER: PARAMS TAB ============ */
+const PARAM_FIELDS = [
+  ["safetyDom","An toàn tồn kho - hàng NỘI ĐỊA (ngày)","Số ngày dự phòng thêm cho hàng nội địa (lead time ngắn, ít rủi ro hơn)"],
+  ["safetyImp","An toàn tồn kho - hàng NHẬP KHẨU (ngày)","Số ngày dự phòng thêm cho hàng nhập khẩu (lead time dài, rủi ro trễ cao hơn)"],
+  ["cycleDom","Chu kỳ đặt hàng mục tiêu - NỘI ĐỊA (ngày)","Sau khi đặt, tồn kho nên đủ dùng bấy nhiêu ngày"],
+  ["cycleImp","Chu kỳ đặt hàng mục tiêu - NHẬP KHẨU (ngày)","Nhập khẩu lead time dài + MOQ container nên đặt gộp lô lớn"],
+  ["targetHCM","Ngày tồn kho mục tiêu tại kho HCM (ngày)","HCM ở xa, chi phí & thời gian chuyển hàng cao → để tồn nhiều hơn"],
+  ["targetGT","Ngày tồn kho mục tiêu tại kho GT (HN) (ngày)","GT & TMĐT cách nhau 20km, chi phí điều chuyển thấp → để tồn ít hơn"],
+  ["targetTMDT","Ngày tồn kho mục tiêu tại kho TMĐT (ngày)","Tương tự kho GT vì 2 kho ở gần nhau"],
+  ["minHCMBatch","Ngưỡng tối thiểu 1 lần chuyển hàng vào HCM (SP)","Dưới ngưỡng này → cảnh báo lô quá nhỏ"],
+  ["thresholdTransfer","Ngưỡng chênh lệch ngày tồn kích hoạt điều chuyển GT↔TMĐT (ngày)","Vượt ngưỡng → đề xuất điều chuyển nội bộ"],
+  ["daysPerMonth","Số ngày quy đổi 1 tháng","Chuẩn hoá tiêu thụ/tháng → tiêu thụ/ngày"],
+];
+function renderParams(){
+  const grid = document.getElementById("paramsGrid");
+  grid.innerHTML = PARAM_FIELDS.map(([key,label,hint])=>`
+    <div class="field">
+      <label>${esc(label)}</label>
+      <input type="number" data-pkey="${key}" value="${PARAMS[key]}" step="any"/>
+      <div class="hint">${esc(hint)}</div>
+    </div>`).join("");
+  grid.querySelectorAll("input").forEach(inp=>{
+    inp.addEventListener("input", ()=>{ PARAMS[inp.dataset.pkey] = parseFloat(inp.value) || 0; });
+  });
+}
+
+/* ============ RENDER: PRODUCTS TAB ============ */
+function renderProducts(){
+  const rows = filteredProducts();
+  const tbody = document.getElementById("productsBody");
+  tbody.innerHTML = rows.map(({p,idx})=>{
+    const cs = catStyle(p.cat);
+    return `<tr>
+      <td class="sku-col left" style="background:${cs.bg};color:${cs.fg};font-weight:700">${esc(p.sku)}</td>
+      <td class="name-col left" style="background:${cs.bg};color:${cs.fg}">${esc(p.name)}</td>
+      <td><span class="${cs.chip}">${esc(p.cat)}</span></td>
+      <td>${esc(p.unit)}</td>
+      <td><select data-idx="${idx}" data-field="type" data-kind="text">
+            <option ${p.type==="Nội địa"?"selected":""}>Nội địa</option>
+            <option ${p.type==="Nhập khẩu"?"selected":""}>Nhập khẩu</option>
+          </select></td>
+      <td class="left"><input data-idx="${idx}" data-field="ncc" data-kind="text" value="${esc(p.ncc)}"/></td>
+      <td><input type="number" data-idx="${idx}" data-field="leadDom" value="${p.leadDom}"/></td>
+      <td><input type="number" data-idx="${idx}" data-field="leadImp" value="${p.leadImp}"/></td>
+      <td><input type="number" data-idx="${idx}" data-field="moq" value="${p.moq}"/></td>
+      <td><input type="number" data-idx="${idx}" data-field="price" value="${p.price}"/></td>
+      <td class="left" style="color:#7F7F7F;font-style:italic;font-size:11.5px">${esc(p.note)}</td>
+    </tr>`;
+  }).join("");
+}
+
+/* ============ RENDER: INVENTORY TAB ============ */
+function renderInventory(){
+  const rows = filteredProducts();
+  const tbody = document.getElementById("inventoryBody");
+  tbody.innerHTML = rows.map(({p,idx})=>{
+    const cs = catStyle(p.cat);
+    const total = p.gt+p.tmdt+p.hcm;
+    const diff = total - p.refTotal;
+    return `<tr>
+      <td class="sku-col left" style="background:${cs.bg};color:${cs.fg};font-weight:700">${esc(p.sku)}</td>
+      <td class="name-col left" style="background:${cs.bg};color:${cs.fg}">${esc(p.name)}</td>
+      <td><span class="${cs.chip}">${esc(p.cat)}</span></td>
+      <td><input type="number" data-idx="${idx}" data-field="gt" value="${p.gt}"/></td>
+      <td><input type="number" data-idx="${idx}" data-field="tmdt" value="${p.tmdt}"/></td>
+      <td><input type="number" data-idx="${idx}" data-field="hcm" value="${p.hcm}"/></td>
+      <td data-derived="total" style="font-weight:700">${fmt0(total)}</td>
+      <td>${fmt0(p.refTotal)}</td>
+      <td data-derived="diff" style="color:${diff!==0?'#9C0006':'#2E7D32'};font-weight:800">${fmt0(diff)}</td>
+      <td><input type="number" data-idx="${idx}" data-field="incoming" value="${p.incoming}"/></td>
+    </tr>`;
+  }).join("");
+}
+
+/* ============ RENDER: CONSUMPTION TAB ============ */
+function renderConsumption(){
+  const rows = filteredProducts();
+  const tbody = document.getElementById("consumptionBody");
+  tbody.innerHTML = rows.map(({p,idx})=>{
+    const cs = catStyle(p.cat);
+    const totCons = p.consGt+p.consTmdt+p.consHcm;
+    const exp = totCons * p.season;
+    return `<tr>
+      <td class="sku-col left" style="background:${cs.bg};color:${cs.fg};font-weight:700">${esc(p.sku)}</td>
+      <td class="name-col left" style="background:${cs.bg};color:${cs.fg}">${esc(p.name)}</td>
+      <td><span class="${cs.chip}">${esc(p.cat)}</span></td>
+      <td><input type="number" data-idx="${idx}" data-field="consGt" value="${p.consGt}"/></td>
+      <td><input type="number" data-idx="${idx}" data-field="consTmdt" value="${p.consTmdt}"/></td>
+      <td><input type="number" data-idx="${idx}" data-field="consHcm" value="${p.consHcm}"/></td>
+      <td data-derived="totcons" style="font-weight:700">${fmt0(totCons)}</td>
+      <td><input type="number" data-idx="${idx}" data-field="season" value="${p.season}" step="0.05" style="background:#FFF9DB"/></td>
+      <td data-derived="expcons" style="font-weight:700">${fmt0(exp)}</td>
+    </tr>`;
+  }).join("");
+}
+
+/* ============ RENDER: ORDER TAB ============ */
+function statusPill(status){
+  const map = {
+    "KHẨN CẤP - Đặt ngay":"status-pill status-urgent",
+    "CẦN ĐẶT HÀNG SỚM":"status-pill status-soon",
+    "Đủ hàng":"status-pill status-ok",
+    "Chưa đủ dữ liệu tiêu thụ":"status-pill status-nodata",
+  };
+  return `<span class="${map[status]||''}">${esc(status)}</span>`;
+}
+function renderOrder(){
+  const rows = filteredProducts();
+  const tbody = document.getElementById("orderBody");
+  let sumQty = 0, sumVal = 0;
+  tbody.innerHTML = rows.map(({p,idx})=>{
+    const cs = catStyle(p.cat);
+    const o = computeOrder(p);
+    sumQty += o.orderQty; sumVal += o.orderValue;
+    return `<tr>
+      <td class="sku-col left" style="background:${cs.bg};color:${cs.fg};font-weight:700">${esc(p.sku)}</td>
+      <td class="name-col left" style="background:${cs.bg};color:${cs.fg}">${esc(p.name)}</td>
+      <td><span class="${cs.chip}">${esc(p.cat)}</span></td>
+      <td>${esc(p.type)}</td>
+      <td>${fmt0(o.leadTime)}</td>
+      <td>${fmt0(o.totalInv)}</td>
+      <td>${fmt0(p.incoming)}</td>
+      <td>${fmt0(o.consMonth)}</td>
+      <td>${fmt1(o.consDay)}</td>
+      <td>${fmt0(o.safety)}</td>
+      <td>${fmt0(o.safetyStock)}</td>
+      <td>${fmt0(o.reorderPoint)}</td>
+      <td>${fmt0(o.cycle)}</td>
+      <td>${fmt0(o.targetStock)}</td>
+      <td>${fmt1(o.daysLeft)}</td>
+      <td>${statusPill(o.status)}</td>
+      <td>${fmt0(p.moq)}</td>
+      <td>${fmt0(o.rawQty)}</td>
+      <td style="font-weight:800;background:#DDEBF7">${fmt0(o.orderQty)}</td>
+      <td>${fmtVnd(o.orderValue)}</td>
+    </tr>`;
+  }).join("");
+  document.getElementById("orderTotQty").textContent = fmt0(sumQty);
+  document.getElementById("orderTotVal").textContent = fmtVnd(sumVal);
+}
+
+/* ============ RENDER: ALLOCATION TAB ============ */
+function renderAlloc(){
+  const rows = filteredProducts();
+  const tbody = document.getElementById("allocBody");
+  let sumGT=0,sumTMDT=0,sumHCM=0,sumTotal=0;
+  tbody.innerHTML = rows.map(({p,idx})=>{
+    const cs = catStyle(p.cat);
+    const o = computeOrder(p);
+    const a = computeAlloc(p, o.orderQty);
+    sumGT+=a.allocGT; sumTMDT+=a.allocTMDT; sumHCM+=a.allocHCM; sumTotal+=o.orderQty;
+    return `<tr>
+      <td class="sku-col left" style="background:${cs.bg};color:${cs.fg};font-weight:700">${esc(p.sku)}</td>
+      <td class="name-col left" style="background:${cs.bg};color:${cs.fg}">${esc(p.name)}</td>
+      <td><span class="${cs.chip}">${esc(p.cat)}</span></td>
+      <td style="font-weight:700">${fmt0(o.orderQty)}</td>
+      <td>${fmt0(p.consGt)}</td><td>${fmt0(p.consTmdt)}</td><td>${fmt0(p.consHcm)}</td>
+      <td>${fmt0(p.gt)}</td><td>${fmt0(p.tmdt)}</td><td>${fmt0(p.hcm)}</td>
+      <td>${fmt1(a.dayGT)}</td><td>${fmt1(a.dayTMDT)}</td><td>${fmt1(a.dayHCM)}</td>
+      <td>${fmt0(PARAMS.targetGT)}</td><td>${fmt0(PARAMS.targetTMDT)}</td><td>${fmt0(PARAMS.targetHCM)}</td>
+      <td>${fmt0(a.needGT)}</td><td>${fmt0(a.needTMDT)}</td><td>${fmt0(a.needHCM)}</td>
+      <td style="font-weight:800;background:#DDEBF7">${fmt0(a.allocGT)}</td>
+      <td style="font-weight:800;background:#DDEBF7">${fmt0(a.allocTMDT)}</td>
+      <td style="font-weight:800;background:#DDEBF7">${fmt0(a.allocHCM)}</td>
+      <td style="color:${a.check!==0?'#9C0006':'#2E7D32'};font-weight:800">${fmt0(a.check)}</td>
+      <td>${a.warnHCM?'<span class="warn-text">⚠ Lô HCM nhỏ</span>':''}</td>
+      <td>${fmt1(a.diffDays)}</td>
+      <td>${fmt0(a.transferQty)}</td>
+      <td style="font-weight:700">${esc(a.transferDir)}</td>
+    </tr>`;
+  }).join("");
+  document.getElementById("allocTotGT").textContent = fmt0(sumGT);
+  document.getElementById("allocTotTMDT").textContent = fmt0(sumTMDT);
+  document.getElementById("allocTotHCM").textContent = fmt0(sumHCM);
+}
+
+/* ============ RENDER: DASHBOARD ============ */
+function renderDashboard(){
+  let urgent=0, soon=0, ok=0, nodata=0, totalVal=0, warnHCMcount=0, transferCount=0;
+  const catCount = {};
+  CATS.forEach(c=>catCount[c]={urgent:0,total:0});
+  PRODUCTS.forEach(p=>{
+    const o = computeOrder(p);
+    const a = computeAlloc(p, o.orderQty);
+    if (o.status==="KHẨN CẤP - Đặt ngay") { urgent++; catCount[p.cat].urgent++; }
+    else if (o.status==="CẦN ĐẶT HÀNG SỚM") soon++;
+    else if (o.status==="Đủ hàng") ok++;
+    else nodata++;
+    totalVal += o.orderValue;
+    if (a.warnHCM) warnHCMcount++;
+    if (a.transferQty>0) transferCount++;
+    catCount[p.cat].total++;
+  });
+  document.getElementById("kpiTotal").textContent = PRODUCTS.length;
+  document.getElementById("kpiUrgent").textContent = urgent;
+  document.getElementById("kpiSoon").textContent = soon;
+  document.getElementById("kpiOk").textContent = ok;
+  document.getElementById("kpiNodata").textContent = nodata;
+  document.getElementById("kpiVal").textContent = fmtVnd(totalVal);
+  document.getElementById("kpiWarnHCM").textContent = warnHCMcount;
+  document.getElementById("kpiTransfer").textContent = transferCount;
+
+  const tbody = document.getElementById("catBreakdownBody");
+  tbody.innerHTML = CATS.map(c=>{
+    const cs = catStyle(c);
+    const d = catCount[c];
+    return `<tr>
+      <td class="left"><span class="${cs.chip}">${esc(c)}</span></td>
+      <td>${d.total}</td>
+      <td style="color:${d.urgent>0?'#9C0006':'#2E7D32'};font-weight:800">${d.urgent}</td>
+    </tr>`;
+  }).join("");
+}
+
+/* ============ FACTORS TAB (static) ============ */
+const FACTORS = [
+  ["Độ tin cậy / lịch sử giao hàng của NCC","NCC hay giao trễ thì nên cộng thêm buffer ngày an toàn riêng, thay vì dùng chung 1 mức."],
+  ["Biến động tỷ giá (hàng nhập khẩu)","Tỷ giá tăng ảnh hưởng tới quyết định gom đơn lớn 1 lần hay chia nhỏ."],
+  ["Hạn sử dụng (Nông Sản đóng lon/lọ, TP BVSK)","Không nên đặt tồn kho mục tiêu quá cao dù công thức đề xuất nhiều, tránh cận date."],
+  ["Chương trình khuyến mãi sắp tới","Chủ động tăng hệ số mùa vụ ở tab Tiêu thụ cho SKU liên quan trước khi chạy campaign."],
+  ["Công suất kho / hạn mức diện tích","Nếu kho gần đầy, có thể cần giảm tạm ngày tồn kho mục tiêu của kho đó."],
+  ["Dòng tiền / hạn mức công nợ NCC","Đối chiếu số đề xuất đặt hàng với ngân sách/hạn mức thanh toán thực tế trước khi chốt đơn."],
+  ["Tần suất xe chuyển hàng cố định GT-HCM","Nếu có lịch xe/container cố định, đặt 'ngày tồn kho mục tiêu HCM' theo đúng chu kỳ đó."],
+  ["Sản phẩm mới / chưa có lịch sử tiêu thụ","Dùng số ước tính từ SP tương tự, theo dõi sát 4-6 tuần đầu để hiệu chỉnh."],
+  ["Rủi ro gián đoạn chuỗi cung ứng","Trước kỳ nghỉ lễ dài (Tết) nên tăng số ngày an toàn tạm thời."],
+  ["Sản phẩm bán chạy / ABC analysis","Ưu tiên xử lý cảnh báo KHẨN CẤP cho nhóm SKU đóng góp doanh thu lớn trước nếu nguồn lực có hạn."],
+];
+function renderFactors(){
+  document.getElementById("factorsGrid").innerHTML = FACTORS.map(([t,d])=>`
+    <div class="factor"><h3>${esc(t)}</h3><p>${esc(d)}</p></div>`).join("");
+}
+
+/* ============ TAB SWITCHING ============ */
+function renderTab(tab){
+  if (tab==="dashboard") renderDashboard();
+  else if (tab==="params") renderParams();
+  else if (tab==="products") renderProducts();
+  else if (tab==="inventory") renderInventory();
+  else if (tab==="consumption") renderConsumption();
+  else if (tab==="order") renderOrder();
+  else if (tab==="alloc") renderAlloc();
+  else if (tab==="factors") renderFactors();
+}
+function setActiveTab(tab){
+  document.querySelectorAll("nav.tabs button").forEach(b=>b.classList.toggle("active", b.dataset.tab===tab));
+  document.querySelectorAll(".tabpanel").forEach(p=>p.classList.toggle("active", p.id==="tab-"+tab));
+  renderTab(tab);
+}
+
+/* ============ EXPORT / IMPORT ============ */
+function exportJSON(){
+  const data = { params: PARAMS, products: PRODUCTS, exportedAt: new Date().toISOString() };
+  const blob = new Blob([JSON.stringify(data, null, 1)], {type:"application/json"});
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "du-kien-dat-hang-data.json";
+  a.click();
+}
+function importJSONFile(file){
+  const reader = new FileReader();
+  reader.onload = e=>{
+    try{
+      const data = JSON.parse(e.target.result);
+      if (data.params) PARAMS = Object.assign(PARAMS, data.params);
+      if (data.products) PRODUCTS = data.products;
+      renderAllTabs();
+      alert("Đã nhập dữ liệu thành công.");
+    } catch(err){ alert("File JSON không hợp lệ: " + err.message); }
+  };
+  reader.readAsText(file, "utf-8");
+}
+function resetData(){
+  if (!confirm("Khôi phục toàn bộ dữ liệu về mặc định ban đầu? Mọi thay đổi chưa xuất file sẽ mất.")) return;
+  PRODUCTS = JSON.parse(JSON.stringify(PRODUCTS_SEED));
+  PARAMS = JSON.parse(JSON.stringify(PARAMS_SEED));
+  renderAllTabs();
+}
+function renderAllTabs(){
+  const active = document.querySelector("nav.tabs button.active")?.dataset.tab || "dashboard";
+  ["dashboard","params","products","inventory","consumption","order","alloc","factors"].forEach(renderTab);
+  setActiveTab(active);
+}
+
+/* ============ INIT ============ */
+function initApp(){
+  document.querySelectorAll("nav.tabs button").forEach(b=>{
+    b.addEventListener("click", ()=>setActiveTab(b.dataset.tab));
+  });
+  bindDelegatedInputs("productsBody");
+  bindDelegatedInputs("inventoryBody");
+  bindDelegatedInputs("consumptionBody");
+
+  document.getElementById("btnExport").addEventListener("click", exportJSON);
+  document.getElementById("btnImport").addEventListener("click", ()=>document.getElementById("fileImport").click());
+  document.getElementById("fileImport").addEventListener("change", e=>{
+    if (e.target.files[0]) importJSONFile(e.target.files[0]);
+    e.target.value = "";
+  });
+  document.getElementById("btnReset").addEventListener("click", resetData);
+  document.getElementById("btnPrint").addEventListener("click", ()=>window.print());
+  document.querySelectorAll("[data-recalc]").forEach(b=>b.addEventListener("click", renderAllTabs));
+
+  document.getElementById("searchBox").addEventListener("input", e=>{
+    UI.q = e.target.value;
+    const active = document.querySelector("nav.tabs button.active").dataset.tab;
+    renderTab(active);
+  });
+  document.querySelectorAll(".filter-btn").forEach(b=>{
+    b.addEventListener("click", ()=>{
+      document.querySelectorAll(".filter-btn").forEach(x=>x.classList.remove("active"));
+      b.classList.add("active");
+      UI.filterCat = b.dataset.cat;
+      const active = document.querySelector("nav.tabs button.active").dataset.tab;
+      renderTab(active);
+    });
+  });
+
+  renderAllTabs();
+}
+document.addEventListener("DOMContentLoaded", initApp);
+
+</script>
+</body>
+</html>
